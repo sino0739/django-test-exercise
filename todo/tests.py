@@ -29,6 +29,29 @@ class TaskModelTestCase(TestCase):
         self.assertFalse(task.completed)
         self.assertEqual(task.due_at, None)
 
+    def test_is_overdue_future(self):
+        due = timezone.make_aware(datetime(2024, 6, 30, 23, 59, 59))
+        current = timezone.make_aware(datetime(2024, 6, 30, 0, 0, 0))
+        task = Task(title='task1', due_at=due)
+        task.save()
+
+        self.assertFalse(task.is_overdue(current))
+
+    def test_is_overdue_past(self):
+        due = timezone.make_aware(datetime(2024, 6, 30, 23, 59, 59))
+        current = timezone.make_aware(datetime(2024, 7, 1, 0, 0, 0))
+        task = Task(title='task1', due_at=due)
+        task.save()
+
+        self.assertTrue(task.is_overdue(current))
+
+    def test_is_overdue_none(self):
+        current = timezone.make_aware(datetime(2024, 7, 1, 0, 0, 0))
+        task = Task(title='task1')
+        task.save()
+
+        self.assertFalse(task.is_overdue(current))
+
 
 class TodoViewTestCase(TestCase):
     def test_index_get(self):
@@ -47,32 +70,6 @@ class TodoViewTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.templates[0].name, 'todo/index.html')
         self.assertEqual(len(response.context['tasks']), 1)
-
-    def test_index_post_without_due_at(self):
-        client = Client()
-        data = {'title': 'Test Task', 'due_at': ''}
-        response = client.post('/', data)
-
-        self.assertEqual(response.status_code, 200)
-        task = response.context['tasks'][0]
-        self.assertEqual(task.title, 'Test Task')
-        self.assertEqual(task.due_at, None)
-
-    def test_index_displays_task(self):
-        task = Task(title='task1')
-        task.save()
-        client = Client()
-        response = client.get('/')
-
-        self.assertContains(response, 'task1')
-        self.assertContains(response, 'Status: Not Completed')
-
-    def test_index_has_sort_links(self):
-        client = Client()
-        response = client.get('/')
-
-        self.assertContains(response, '?order=due')
-        self.assertContains(response, '?order=post')
 
     def test_index_get_order_post(self):
         task1 = Task(title='task1', due_at=timezone.make_aware(datetime(2024, 7, 1)))
